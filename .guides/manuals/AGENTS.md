@@ -17,6 +17,7 @@
 |-----------------|-----------------|----------------|
 | **Fashion_House_Manual.md** | `.guides/manuals/` | **누가**, **무엇을**, **어떻게** 상호작용하는지 정의합니다. (법률) |
 | **Fashion_House_Guides.md** | `.guides/manuals/` | **구체적인 행동**과 **템플릿**을 정의합니다. (SOP) |
+| **Skills_Guide.md** | `.guides/manuals/` | **[NEW]** 사용 가능한 AI 스킬 목록 및 사용법 상세 |
 | **Installation_Guide.md** | `.guides/setup/` | 시스템 설치 및 환경 설정 가이드 |
 
 ## 유지보수 (MAINTENANCE)

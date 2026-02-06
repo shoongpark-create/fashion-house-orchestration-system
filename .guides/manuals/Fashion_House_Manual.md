@@ -39,6 +39,7 @@
     - **Strategic Brain**: Antigravity (Gemini 3 Pro) - 글로벌 GTM, IP 확장 전략 (Thinking).
     - **Master Builder**: Hephaestus (GPT-4o / OpenCode Zen Key) - 고난도 시스템 코딩 및 아키텍처 구현 (Coding).
     - **Creative Engine**: IP Artist (GLM-4 Plus) - 스토리텔링, 마케팅 카피 (Creating).
+- **Available Skills**: 모든 에이전트는 [Skills Guide](Skills_Guide.md)에 정의된 20+개 스킬을 사용할 수 있습니다.
 
 ### C. 회복탄력성 프로토콜 (Resilience Protocol)
 시스템의 안정성을 위해 **자동 모델 전환(Failover)**을 지원합니다.
