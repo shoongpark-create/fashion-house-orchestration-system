@@ -1,0 +1,16 @@
+name: weekly-reporter
+description: Automates the generation of weekly sales reports (Markdown) and dashboard data (Excel) from brand analysis JSONs.
+usage: |
+  /weekly-reporter --input_dir "path/to/analysis/folder"
+  
+  Example:
+  /weekly-reporter --input_dir "01_Strategy/reports/Weekly Best Review"
+
+arguments:
+  input_dir:
+    description: Directory containing 'brand_analysis_*.json' files.
+    required: true
+
+runner:
+  type: python
+  script: reporter.py

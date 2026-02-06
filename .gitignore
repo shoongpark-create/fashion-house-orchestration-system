@@ -1,0 +1,47 @@
+# User Workspaces (Do not commit personal work)
+Sherman's Workspace/
+*_Workspace/
+workspace/
+My_Workspace/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+.env.local
+*.pyc
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Mac
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets & Auth
+.claude/auth/*.env
+secrets/
+*.pem
+*.key
+
+# Cache
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Misc
+logs/
+*.log
+*.tmp

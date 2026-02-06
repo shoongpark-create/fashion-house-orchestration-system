@@ -1,0 +1,27 @@
+name: season-review-analyzer
+version: 1.0.0
+description: |
+  Analyzes fashion season data (Sales, Returns, Marketing, VOC) to generate Next Season Strategy.
+  Returns OTB Plan and Product Development Requests based on "Infinity Loop" protocol.
+  
+triggers:
+  - "시즌 리뷰 해줘"
+  - "시즌 분석 시작"
+  - "/start-season-review"
+  - "analyze season data"
+
+entry_point: "python skills/strategy/season-review-analyzer/analyze.py"
+
+inputs:
+  sales_data:
+    type: file_path
+    description: "CSV file path containing sales data (optional, uses dummy if null)"
+    required: false
+  voc_data:
+    type: file_path
+    description: "Text file containing customer feedback (optional)"
+    required: false
+
+outputs:
+  strategy_md: "Path to the generated Season_Strategy.md"
+  dev_request_md: "Path to the generated Product_Dev_Request.md"
