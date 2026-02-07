@@ -102,7 +102,7 @@ class WackyDashboardGenerator:
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f"Data file not found: {self.file_path}")
 
-        xls = pd.ExcelFile("Sherman's Workspace/Data/와키윌리 주간판매 데이터.xlsx")
+        xls = pd.ExcelFile(self.file_path)
         sheet_names = xls.sheet_names
         print(f"Sheets found: {sheet_names}")
 
