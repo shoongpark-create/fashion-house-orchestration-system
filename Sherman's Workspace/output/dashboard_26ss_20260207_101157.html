@@ -70,7 +70,7 @@
                 <span id="data-source-badge" class="badge bg-warning text-dark">Sample Data</span>
                 <span id="lib-status" class="badge bg-secondary ms-2 small">Checking...</span>
             </div>
-            <span class="text-muted">Updated: 2026-02-07 09:59</span>
+            <span class="text-muted">Updated: 2026-02-07 10:11</span>
         </div>
 
         <div class="row mb-3">
@@ -566,6 +566,9 @@
             
             function safeNum(val) {
                 if (val === undefined || val === null || val === '') return 0;
+                if (typeof val === 'string') {
+                    val = val.replace(/,/g, '');
+                }
                 var num = parseFloat(val);
                 return isNaN(num) ? 0 : num;
             }

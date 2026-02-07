@@ -566,6 +566,9 @@
             
             function safeNum(val) {
                 if (val === undefined || val === null || val === '') return 0;
+                if (typeof val === 'string') {
+                    val = val.replace(/,/g, '');
+                }
                 var num = parseFloat(val);
                 return isNaN(num) ? 0 : num;
             }
