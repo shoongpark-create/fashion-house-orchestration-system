@@ -54,7 +54,11 @@
             background-color: #f8f9fa !important; 
             border-top: 2px solid #6c757d;
             position: relative;
-            z-index: 1;
+            z-index: 10 !important; /* Higher Z-index to stay on top */
+        }
+        div.DTFC_LeftFootWrapper table {
+            background-color: #f8f9fa;
+            border-top: 2px solid #6c757d;
         }
         .DTFC_LeftBodyLiner { overflow-y: hidden !important; }
     </style>
@@ -74,7 +78,7 @@
                 <span id="data-source-badge" class="badge bg-warning text-dark">Sample Data</span>
                 <span id="lib-status" class="badge bg-secondary ms-2 small">Checking...</span>
             </div>
-            <span class="text-muted">Updated: 2026-02-07 11:03</span>
+            <span class="text-muted">Updated: 2026-02-07 11:07</span>
         </div>
 
         <div class="row mb-3">
@@ -799,10 +803,24 @@
                 Object.values(groups).forEach(g => {
                     var m = g.meta;
                     var currentYear = parseInt(m[0]);
-                    var prevYear = currentYear - 1; // Strict Year-1 Calculation
+                    
+                    // Logic Update:
+                    // If we are looking for "전년" data for Year 26, we want data marked as "전년" that has Year 25.
+                    // My previous logic looked for Year 25 (prevYear).
+                    // Python Check says: Year 25 + 구분:전년 => Sum 964.
+                    // So looking up Year 25 SHOULD work.
+                    // Why did it return 0?
+                    // Maybe 'refMap' building filtered out Year 25?
+                    // Let's verify refMap building logic.
+                    
+                    // The issue might be key construction or type mismatch (25 vs 25.0).
+                    // I handled type normalization.
+                    
+                    var prevYear = currentYear - 1; 
 
                     // YoY Lookup Key: (Year-1)|season|gender|type|catL|catM
                     var prevKey = [prevYear, m[1], m[2], m[3], m[4], m[5]].join('|');
+
                     var ref = refMap[prevKey] || { weekQty:0, weekAmt:0, cumQty:0, cumAmt:0 };
                     
                     var inRate = g.order > 0 ? (g.in/g.order*100).toFixed(0) : 0;
