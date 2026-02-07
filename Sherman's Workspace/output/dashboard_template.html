@@ -49,10 +49,14 @@
             overflow-y: auto !important; 
         }
         
-        tfoot th { background-color: #e9ecef; font-weight: bold; border-top: 2px solid #6c757d; text-align: right; font-size: 0.8rem; }
-        .progress { height: 25px; margin-bottom: 20px; font-weight: bold; font-size: 0.8rem; }
-        .chart-container { position: relative; height: 180px; width: 100%; }
-        .chart-container-lg { position: relative; height: 300px; width: 100%; }
+        /* Fixed Columns Footer Background Fix */
+        table.dataTable tfoot th, table.dataTable tfoot td {
+            background-color: #f8f9fa !important; 
+            border-top: 2px solid #6c757d;
+            position: relative;
+            z-index: 1;
+        }
+        .DTFC_LeftBodyLiner { overflow-y: hidden !important; }
     </style>
 </head>
 <body>
@@ -743,6 +747,9 @@
                         // Normalize keys
                         var year = parseInt(item.기획정보_연도);
                         if (isNaN(year)) return;
+                        
+                        // Handle 2025 vs 25 (and any other 4-digit years)
+                        if (year > 2000) year = year - 2000;
 
                         var season = String(item.기획정보_시즌 || '').trim();
                         var gender = String(item.기획정보_성별 || '').trim();
@@ -847,19 +854,41 @@
                         // 21: 재고수량, 22: 재고금액, 23: 소진율
                         
                         var sumCols = [6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19, 21, 22];
+                        var totals = {};
                         
                         sumCols.forEach(function(colIdx) {
                             var total = api.column(colIdx, { search: 'applied' }).data().reduce(function(a, b) {
                                 return intVal(a) + intVal(b);
                             }, 0);
+                            totals[colIdx] = total;
                             $(api.column(colIdx).footer()).html(total.toLocaleString());
                         });
                         
                         // Re-calculate Rates for Footer
-                        var sumIn = intVal($(api.column(8).footer()).html()); // 입고
-                        var sumSold = intVal($(api.column(16).footer()).html()); // 누적판매
+                        var sumIn = totals[8]; // 입고
+                        var sumSold = totals[16]; // 누적판매
                         var rateSell = sumIn > 0 ? (sumSold / sumIn * 100).toFixed(1) + '%' : '0.0%';
                         $(api.column(23).footer()).html(rateSell);
+
+                        // Growth Rates for Footer
+                        // 주간신장 (Week Growth): (Col 11 - Col 13) / Col 13
+                        var sumWeek = totals[12]; // 주간금액
+                        var sumPrevWeek = totals[14]; // 전년주간금액
+                        var rateWeek = sumPrevWeek > 0 ? ((sumWeek - sumPrevWeek) / sumPrevWeek * 100).toFixed(0) + '%' : '-';
+                        if(sumPrevWeek === 0 && sumWeek === 0) rateWeek = '-';
+                        
+                        // Apply Color Class based on value
+                        var weekClass = (rateWeek !== '-' && parseFloat(rateWeek) < 0) ? 'text-danger' : 'text-success';
+                        $(api.column(15).footer()).html('<span class="'+weekClass+'">'+rateWeek+'</span>');
+
+                        // 누적신장 (Cum Growth): (Col 17 - Col 19) / Col 19
+                        var sumCum = totals[17]; // 누적금액
+                        var sumPrevCum = totals[19]; // 전년누적금액
+                        var rateCum = sumPrevCum > 0 ? ((sumCum - sumPrevCum) / sumPrevCum * 100).toFixed(0) + '%' : '-';
+                        if(sumPrevCum === 0 && sumCum === 0) rateCum = '-';
+                        
+                        var cumClass = (rateCum !== '-' && parseFloat(rateCum) < 0) ? 'text-danger' : 'text-success';
+                        $(api.column(20).footer()).html('<span class="'+cumClass+'">'+rateCum+'</span>');
                     }
                 });
             }
