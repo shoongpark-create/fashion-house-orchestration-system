@@ -911,3 +911,9 @@
                     }
                 });
             }
+            function formatQty(val) { return val.toLocaleString(); }
+            function formatAmt(val) { return Math.round(val/1000000).toLocaleString(); }
+            function formatPct(val) { return val.toFixed(1) + '%'; }
+    </script>
+</body>
+</html>

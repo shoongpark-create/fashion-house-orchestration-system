@@ -70,7 +70,7 @@
                 <span id="data-source-badge" class="badge bg-warning text-dark">Sample Data</span>
                 <span id="lib-status" class="badge bg-secondary ms-2 small">Checking...</span>
             </div>
-            <span class="text-muted">Updated: 2026-02-07 09:32</span>
+            <span class="text-muted">Updated: 2026-02-07 09:59</span>
         </div>
 
         <div class="row mb-3">
@@ -911,3 +911,9 @@
                     }
                 });
             }
+            function formatQty(val) { return val.toLocaleString(); }
+            function formatAmt(val) { return Math.round(val/1000000).toLocaleString(); }
+            function formatPct(val) { return val.toFixed(1) + '%'; }
+    </script>
+</body>
+</html>
