@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wacky Willy 26SS Dashboard</title>
+    <meta charset="utf-8">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/fixedcolumns/4.0.2/css/fixedColumns.bootstrap5.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    
+    <!-- Reliable CDN for SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="alert('Error loading XLSX library. Check internet connection.');"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js"></script>
+    
+    <style>
+        body { background-color: #f8f9fa; padding: 20px; font-family: 'Segoe UI', sans-serif; font-size: 0.85rem; }
+        .card { margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: none; }
+        .card-header { background-color: #fff; border-bottom: 2px solid #333; font-weight: bold; font-size: 1rem; }
+        .kpi-box { text-align: center; padding: 15px; background: white; border-radius: 8px; }
+        .kpi-val { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .kpi-label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
+        .col-md-1-5 { flex: 0 0 16.666667%; max-width: 16.666667%; padding-left: 12px; padding-right: 12px; }
+        
+        th { white-space: nowrap; text-align: center; vertical-align: middle; font-size: 0.8rem; padding: 8px 4px; }
+        td { white-space: nowrap; text-align: right; vertical-align: middle; font-size: 0.85rem; padding: 6px 4px; }
+        td:nth-child(1), td:nth-child(2), td:nth-child(3), td:nth-child(4), td:nth-child(5), td:nth-child(6) { text-align: center; }
+        
+        .pos-growth { color: green; font-weight: bold; }
+        .neg-growth { color: red; font-weight: bold; }
+        .insight-box { background-color: #e8f4f8; border-left: 4px solid #17a2b8; padding: 10px; margin-bottom: 15px; font-size: 0.9rem; color: #0c5460; }
+        .insight-title { font-weight: bold; display: block; margin-bottom: 5px; }
+        
+        /* Select2 Customization */
+        .select2-container { width: 100% !important; }
+        .select2-selection--multiple { 
+            min-height: 38px; 
+            padding: 2px; 
+            font-size: 0.8rem;
+            max-height: 150px; 
+            overflow-y: auto; 
+        }
+        .select2-selection__choice { margin-top: 4px !important; }
+        .select2-search__field { margin-top: 6px !important; }
+        
+        /* Dropdown Scroll Fix */
+        .select2-results__options { 
+            max-height: 400px !important;
+            overflow-y: auto !important; 
+        }
+        
+        tfoot th { background-color: #e9ecef; font-weight: bold; border-top: 2px solid #6c757d; text-align: right; font-size: 0.8rem; }
+        .progress { height: 25px; margin-bottom: 20px; font-weight: bold; font-size: 0.8rem; }
+        .chart-container { position: relative; height: 180px; width: 100%; }
+        .chart-container-lg { position: relative; height: 300px; width: 100%; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center">
+                <h2 class="me-3 mb-0">🚀 Wacky Willy 26SS Dashboard</h2>
+                <div class="d-inline-flex align-items-center me-2">
+                    <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" />
+                    <button type="button" class="btn btn-primary btn-sm me-2" onclick="document.getElementById('excelInput').click()">
+                        📁 Upload Excel
+                    </button>
+                    <span id="upload-status" class="small text-muted">Ready</span>
+                </div>
+                <span id="data-source-badge" class="badge bg-warning text-dark">Sample Data</span>
+                <span id="lib-status" class="badge bg-secondary ms-2 small">Checking...</span>
+            </div>
+            <span class="text-muted">Updated: {report_date}</span>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-3"><div class="kpi-box"><div class="kpi-val" id="kpi-total-sales">-</div><div class="kpi-label">Total Sales (KRW)</div></div></div>
+            <div class="col-md-3"><div class="kpi-box"><div class="kpi-val" id="kpi-total-qty">-</div><div class="kpi-label">Total Qty Sold</div></div></div>
+            <div class="col-md-3"><div class="kpi-box"><div class="kpi-val" id="kpi-sell-through">-</div><div class="kpi-label">Sell-Through Rate</div></div></div>
+            <div class="col-md-3"><div class="kpi-box"><div class="kpi-val" id="kpi-current-stock">-</div><div class="kpi-label">Current Stock</div></div></div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-funnel"></i> 🔍 Global Search Filters (데이터 필터)
+            </div>
+            <div class="card-body bg-light">
+                <div class="row g-3">
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">구분 (금년/전년)</label>
+                        <select class="form-select filter-input" id="filter-gubun" multiple></select>
+                    </div>
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">연도 (Year)</label>
+                        <select class="form-select filter-input" id="filter-year" multiple></select>
+                    </div>
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">시즌 (Season)</label>
+                        <select class="form-select filter-input" id="filter-season" multiple></select>
+                    </div>
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">성별 (Gender)</label>
+                        <select class="form-select filter-input" id="filter-gender" multiple></select>
+                    </div>
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">구분 (Type)</label>
+                        <select class="form-select filter-input" id="filter-type" multiple></select>
+                    </div>
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">대복종 (Cat-L)</label>
+                        <select class="form-select filter-input" id="filter-cat-l" multiple></select>
+                    </div>
+                    <div class="col-md-1-5">
+                        <label class="form-label fw-bold">복종 (Cat-M)</label>
+                        <select class="form-select filter-input" id="filter-cat-m" multiple></select>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    <button class="btn btn-secondary btn-sm" id="btn-reset-filters">🔄 필터 초기화 (Reset)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visual Analysis Section -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">📊 Customer & Product Segmentation (고객/상품군 분석)</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <h6 class="text-center small text-muted mb-2">Gender Share (성별)</h6>
+                                <div class="chart-container">
+                                    <canvas id="chart-gender"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-center small text-muted mb-2">Type Share (구분)</h6>
+                                <div class="chart-container">
+                                    <canvas id="chart-type"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-center small text-muted mb-2">Pareto (상위 20% 상품 매출비중)</h6>
+                                <div class="chart-container">
+                                    <canvas id="chart-pareto"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-center small text-muted mb-2">Season Share (시즌)</h6>
+                                <div class="chart-container">
+                                    <canvas id="chart-season"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">📈 Category Performance (카테고리별 성과)</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-center small text-muted mb-2">Large Category (대복종)</h6>
+                                <div class="chart-container" style="height:200px">
+                                    <canvas id="chart-category-l"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-center small text-muted mb-2">Sub Category (복종 - Top 5)</h6>
+                                <div class="chart-container" style="height:200px">
+                                    <canvas id="chart-category-m"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6 class="text-center small text-muted mb-2">🏆 Top 10 Best Sellers Share (베스트 10 집중도)</h6>
+                                <div class="chart-container" style="height:250px">
+                                    <canvas id="chart-top10"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Advanced Insight Section -->
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-dark bg-opacity-10 fw-bold">
+                <i class="bi bi-lightbulb"></i> 🤖 AI Strategic Insights (전략 제언)
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="alert alert-success mb-0 h-100">
+                            <h6 class="alert-heading fw-bold"><i class="bi bi-graph-up-arrow"></i> Growth Opportunities</h6>
+                            <div id="insight-growth" class="small">Analyzing...</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-warning mb-0 h-100">
+                            <h6 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle"></i> Inventory Risk</h6>
+                            <div id="insight-risk" class="small">Analyzing...</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-primary mb-0 h-100">
+                            <h6 class="alert-heading fw-bold"><i class="bi bi-check2-square"></i> Action Plan</h6>
+                            <div id="insight-action" class="small">Analyzing...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">🏭 Production & Sales Status (생산판매현황판 - 전년비교)</div>
+            <div class="card-body">
+                <div class="insight-box" id="catInsight">
+                    <span class="insight-title">💡 Category Insight</span>
+                    <span id="catInsightText">Loading...</span>
+                </div>
+                <div class="table-responsive">
+                    <table id="catTable" class="table table-hover table-striped table-bordered" style="width:100%">
+                        <thead class="table-light">
+                            <tr>
+                                <th>연도</th><th>시즌</th><th>성별</th><th>구분</th><th>대복종</th><th>복종</th><th>발주(수량)</th><th>발주(백만)</th><th>입고(수량)</th><th>입고(백만)</th><th>입고율(%)</th><th>주간(수량)</th><th>주간(백만)</th><th>전년주간(수량)</th><th>전년주간(백만)</th><th>주간신장(%)</th><th>주간누적(수량)</th><th>주간누적(백만)</th><th>전년누적(수량)</th><th>전년누적(백만)</th><th>누적신장(%)</th><th>재고(수량)</th><th>재고(백만)</th><th>소진율(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catBody">
+                            <!-- JS populated aggregated data -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="6" style="text-align:center">Total</th>
+                                <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">🏆 Top 10 Heroes (판매 베스트 - 동적 필터링)</div>
+                    <div class="card-body">
+                        <div class="insight-box" id="topInsight">
+                            <span class="insight-title">💡 Best Sellers Insight</span>
+                            <span id="topInsightText">Loading...</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="topTable" class="table table-sm table-hover table-striped table-bordered">
+                                <thead class="table-light">
+                                    <tr><th>스타일</th><th>컬러</th><th>구분</th><th>복종</th><th>발주(수량)</th><th>발주(백만)</th><th>입고(수량)</th><th>입고(백만)</th><th>입고율(%)</th><th>주간(수량)</th><th>주간(백만)</th><th>누적(수량)</th><th>누적(백만)</th><th>재고(수량)</th><th>재고(백만)</th><th>소진율(%)</th></tr>
+                                </thead>
+                                <tbody id="topBody">
+                                    <!-- JS populated -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="4" class="text-center">Total (Top 10)</th>
+                                        <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">⚠️ Inventory Risk (판매있음 & 재고과다 & 저효율 - 동적 필터링)</div>
+                    <div class="card-body">
+                        <div class="insight-box" id="riskInsight">
+                            <span class="insight-title">💡 Risk Inventory Insight</span>
+                            <span id="riskInsightText">Loading...</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="riskTable" class="table table-sm table-hover table-striped table-bordered">
+                                <thead class="table-light">
+                                    <tr><th>스타일</th><th>컬러</th><th>구분</th><th>복종</th><th>발주(수량)</th><th>발주(백만)</th><th>입고(수량)</th><th>입고(백만)</th><th>입고율(%)</th><th>주간(수량)</th><th>주간(백만)</th><th>누적(수량)</th><th>누적(백만)</th><th>재고(수량)</th><th>재고(백만)</th><th>소진율(%)</th></tr>
+                                </thead>
+                                <tbody id="riskBody">
+                                    <!-- JS populated -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="4" class="text-center">Total (Risk 10)</th>
+                                        <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/fixedcolumns/4.0.2/js/dataTables.fixedColumns.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    
+    <script>
+        // Global raw data initialized by Python
+        window.itemData = {item_data_json}; // Placeholder
+        window.isSampleData = false;
+        window.charts = { gender: null, type: null, categoryL: null, categoryM: null, top10: null, pareto: null, season: null };
+        
+        // --- Standalone Upload Logic (No jQuery dependency) ---
+        window.addEventListener('load', function() {
+            console.log('Window loaded. Initializing Upload Handler...');
+            
+            var fileInput = document.getElementById('excelInput');
+            if (!fileInput) {
+                console.error('CRITICAL: File input #excelInput not found!');
+                return;
+            }
+
+            fileInput.addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (!file) return;
+
+                var statusEl = document.getElementById('lib-status');
+                if(statusEl) {
+                    statusEl.innerText = 'Reading...';
+                    statusEl.className = 'badge bg-warning text-dark ms-2 small';
+                }
+
+                if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                    alert('⚠️ Please select an Excel file (.xlsx or .xls)');
+                    return;
+                }
+
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        if (typeof XLSX === 'undefined') {
+                            throw new Error('XLSX library not loaded. Please check internet connection.');
+                        }
+
+                        console.log('Parsing Excel...');
+                        var data = new Uint8Array(e.target.result);
+                        var workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                        var mergedData = [];
+
+                        console.log('Sheets found:', workbook.SheetNames);
+
+                        // Read ALL sheets (No skipping logic initially to ensure data load)
+                        workbook.SheetNames.forEach(function(sheetName) {
+                            var json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                            console.log('Sheet:', sheetName, 'Rows:', json.length);
+                            
+                            json.forEach(function(item) {
+                                var cleanItem = {};
+                                Object.keys(item).forEach(function(k) { cleanItem[k.trim()] = item[k]; });
+
+                                // Inference Logic
+                                var gubun = cleanItem['구분'];
+                                var year = parseInt(cleanItem['기획정보_연도']);
+
+                                if (!gubun) {
+                                    if (sheetName.includes('전년')) gubun = '전년';
+                                    else if (sheetName.includes('금년')) gubun = '금년';
+                                    else if (year === 25) gubun = '전년';
+                                    else if (year === 26) gubun = '금년';
+                                    else gubun = '금년'; // Default
+                                }
+                                cleanItem['구분'] = gubun;
+                                
+                                // Auto-calc metrics
+                                var qtyIn = parseFloat(cleanItem['누계입고_수량'] || 0);
+                                var qtyOrder = parseFloat(cleanItem['발주_수량'] || 0);
+                                var qtySold = parseFloat(cleanItem['누계판매_수량'] || 0);
+                                
+                                if (cleanItem['In_Rate'] == null) cleanItem['In_Rate'] = qtyOrder > 0 ? (qtyIn/qtyOrder*100) : 0;
+                                if (cleanItem['Sell_Through'] == null) cleanItem['Sell_Through'] = qtyIn > 0 ? (qtySold/qtyIn*100) : 0;
+
+                                mergedData.push(cleanItem);
+                            });
+                        });
+
+                        if (mergedData.length === 0) {
+                            alert('⚠️ No valid data rows found.');
+                            if(statusEl) statusEl.innerText = 'Empty';
+                            return;
+                        }
+
+                        // Deduplicate
+                        var uniqueMap = new Map();
+                        mergedData.forEach(function(item) {
+                            var uid = (item.시스템정보_품번||'') + (item.시스템정보_색상||'') + (item.기획정보_연도||'') + (item.기획정보_시즌||'');
+                            if(!uniqueMap.has(uid)) uniqueMap.set(uid, item);
+                        });
+
+                        var finalData = Array.from(uniqueMap.values());
+                        console.log('Upload Success. Rows:', finalData.length);
+
+                        // Update Global Data
+                        window.itemData = finalData;
+                        window.isSampleData = false;
+
+                        // Trigger Dashboard Refresh
+                        if (typeof initDashboard === 'function') {
+                            initDashboard();
+                            alert('✅ Data Loaded: ' + finalData.length + ' rows');
+                            if(statusEl) {
+                                statusEl.innerText = 'Loaded';
+                                statusEl.className = 'badge bg-success text-white ms-2 small';
+                            }
+                        } else {
+                            console.error('initDashboard function missing');
+                        }
+
+                    } catch (ex) {
+                        console.error('Upload Error:', ex);
+                        alert('❌ Error: ' + ex.message);
+                        if(statusEl) statusEl.innerText = 'Error';
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        });
+
+        $(document).ready(function() {
+            // Library Check
+            if (typeof XLSX === 'undefined') {
+                $('#lib-status').text('Lib Missing').addClass('bg-danger');
+            } else {
+                $('#lib-status').text('Ready').addClass('bg-success').fadeOut(3000);
+            }
+
+            // Initial Load
+            if (window.itemData && window.itemData.length > 0) {
+                initDashboard();
+            } else {
+                initFilterOptions([]);
+            }
+            
+            // "All" Button Injection
+            $('.card-body .row .col-md-1-5').each(function() {
+                var $col = $(this);
+                var $label = $col.find('label.form-label');
+                var $select = $col.find('select');
+
+                if ($label.length > 0 && $select.length > 0) {
+                    if($label.find('.btn-select-all').length === 0) {
+                        var $btn = $('<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 ms-2 btn-select-all" style="font-size:0.7rem">All</button>');
+                        $btn.on('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            var allVals = $select.find('option').map(function() { return $(this).val(); }).get();
+                            $select.val(allVals).trigger('change');
+                        });
+                        $label.append($btn);
+                    }
+                }
+            });
+
+            // Filter change listener
+            $('.filter-input').on('change', function() {
+                refreshAll();
+            });
+
+            // Reset button
+            $('#btn-reset-filters').on('click', function() {
+                $('.filter-input').each(function() {
+                    var $this = $(this);
+                    if ($this.hasClass('select2-hidden-accessible')) {
+                        $this.val(null).trigger('change');
+                    } else {
+                        $this.val(null).trigger('change');
+                    }
+                });
+                refreshAll();
+            });
+            
+            // NOTE: Previous Upload Logic removed in favor of standalone handler above script block
+        });
+            
+            function initDashboard() {
+                updateDataSourceStatus();
+                initFilterOptions(window.itemData);
+                refreshAll();
+            }
+            
+            function updateDataSourceStatus() {
+                var $badge = $('#data-source-badge');
+                if(window.isSampleData) {
+                    $badge.text('⚠️ Sample Data').removeClass('bg-success text-white').addClass('bg-warning text-dark');
+                } else {
+                    $badge.text('✅ Uploaded Data (' + window.itemData.length + ' rows)').removeClass('bg-warning text-dark').addClass('bg-success text-white');
+                }
+            }
+
+            function initFilterOptions(data) {
+                populateSelect('filter-gubun', data, '구분');
+                populateSelect('filter-year', data, '기획정보_연도');
+                populateSelect('filter-season', data, '기획정보_시즌');
+                populateSelect('filter-gender', data, '기획정보_성별');
+                populateSelect('filter-type', data, '기획정보_의류/용품');
+                populateSelect('filter-cat-l', data, '기획정보_대복종');
+                populateSelect('filter-cat-m', data, '기획정보_복종');
+            }
+
+
+            function populateSelect(id, data, key) {
+                var $el = $('#' + id);
+                if ($el.hasClass("select2-hidden-accessible")) $el.select2('destroy');
+                var unique = [...new Set(data.map(item => item[key]))].sort();
+                $el.empty();
+                unique.forEach(val => {
+                    if(val !== undefined && val !== null) $el.append(new Option(val, val));
+                });
+                initSelect2($el);
+            }
+            
+            function initSelect2($target) {
+                $target.select2({
+                    placeholder: "Select... (Empty = All)",
+                    allowClear: true,
+                    width: '100%',
+                    closeOnSelect: false
+                });
+            }
+
+            function getActiveFilters() {
+                return {
+                    '구분': $('#filter-gubun').val(),
+                    '기획정보_연도': $('#filter-year').val(),
+                    '기획정보_시즌': $('#filter-season').val(),
+                    '기획정보_성별': $('#filter-gender').val(),
+                    '기획정보_의류/용품': $('#filter-type').val(),
+                    '기획정보_대복종': $('#filter-cat-l').val(),
+                    '기획정보_복종': $('#filter-cat-m').val()
+                };
+            }
+
+            function refreshAll() {
+                updateDataSourceStatus();
+                var filters = getActiveFilters();
+                var filteredData = itemData.filter(function(item) {
+                    for (var key in filters) {
+                        var fVals = filters[key];
+                        if (fVals && fVals.length > 0) {
+                            if(!fVals.includes(String(item[key]))) return false;
+                        }
+                    }
+                    return true;
+                });
+
+                updateKPIs(filteredData);
+                updateCharts(filteredData);
+                generateAdvancedInsights(filteredData, filters);
+                renderCategoryTable(filteredData, itemData);
+                updateItemTables(filteredData);
+            }
+            
+            function safeNum(val) {
+                if (val === undefined || val === null || val === '') return 0;
+                var num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+            }
+
+            function updateKPIs(data) {
+                var totalSales = data.reduce((a, b) => a + safeNum(b.누계판매_금액), 0);
+                var totalQty = data.reduce((a, b) => a + safeNum(b.누계판매_수량), 0);
+                var totalStock = data.reduce((a, b) => a + safeNum(b.총재고_수량), 0);
+                var totalIn = data.reduce((a, b) => a + safeNum(b.누계입고_수량), 0);
+                var sellThrough = totalIn > 0 ? (totalQty / totalIn * 100).toFixed(1) + '%' : '0.0%';
+                
+                $('#kpi-total-sales').text((totalSales / 1000000).toLocaleString(undefined, {maximumFractionDigits:0}));
+                $('#kpi-total-qty').text(totalQty.toLocaleString());
+                $('#kpi-sell-through').text(sellThrough);
+                $('#kpi-current-stock').text(totalStock.toLocaleString());
+            }
+
+            // --- Chart Functions ---
+            function updateCharts(data) {
+                updateDoughnutChart('gender', 'chart-gender', aggregateData(data, '기획정보_성별'), 'Gender Share');
+                updateDoughnutChart('type', 'chart-type', aggregateData(data, '기획정보_의류/용품'), 'Type Share');
+                updateDoughnutChart('season', 'chart-season', aggregateData(data, '기획정보_시즌'), 'Season Share');
+                
+                // Pareto Chart
+                var validItems = data.filter(x => safeNum(x.누계판매_금액) > 0);
+                var sortedItems = [...validItems].sort((a,b) => safeNum(b.누계판매_금액) - safeNum(a.누계판매_금액));
+                var top20Count = Math.max(1, Math.ceil(sortedItems.length * 0.2));
+                var topSales = sortedItems.slice(0, top20Count).reduce((a,b) => a + safeNum(b.누계판매_금액), 0);
+                var totalSales = sortedItems.reduce((a,b) => a + safeNum(b.누계판매_금액), 0);
+                
+                updateDoughnutChart('pareto', 'chart-pareto', [
+                    { label: 'Top 20% Items', value: topSales },
+                    { label: 'Bottom 80%', value: totalSales - topSales }
+                ], 'Pareto Share');
+                
+                updateBarChart('categoryL', 'chart-category-l', aggregateData(data, '기획정보_대복종'), 'Large Category');
+                
+                var subCatData = aggregateData(data, '기획정보_복종');
+                if(subCatData.length > 5) subCatData = subCatData.slice(0, 5);
+                updateBarChart('categoryM', 'chart-category-m', subCatData, 'Sub Category (Top 5)');
+                
+                // Top 10 Share
+                var top10Items = [...data].sort((a,b) => safeNum(b.누계판매_금액) - safeNum(a.누계판매_금액)).slice(0, 10);
+                var top10Data = top10Items.map(item => {
+                    var amt = safeNum(item.누계판매_금액);
+                    var share = totalSales > 0 ? (amt / totalSales * 100).toFixed(1) : 0;
+                    return { label: item.시스템정보_품번, value: share, rawValue: amt };
+                });
+                var top10Sum = top10Data.reduce((a, b) => a + parseFloat(b.value), 0);
+                updateBarChart('top10', 'chart-top10', top10Data, 'Top 10 Share: ' + top10Sum.toFixed(1) + '%', true);
+            }
+            
+            function aggregateData(data, key) {
+                var map = {};
+                data.forEach(item => {
+                    var k = item[key] || 'Unknown';
+                    map[k] = (map[k] || 0) + safeNum(item.누계판매_금액);
+                });
+                return Object.entries(map).sort((a,b) => b[1] - a[1]).map(e => ({ label: e[0], value: e[1] }));
+            }
+
+            function updateDoughnutChart(key, id, data, title) {
+                var ctx = document.getElementById(id).getContext('2d');
+                if (charts[key]) charts[key].destroy();
+                if (data.length === 0) return; 
+
+                charts[key] = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(d => d.label),
+                        datasets: [{ data: data.map(d => d.value), backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'] }]
+                    },
+                    options: { maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10 } } }, layout: { padding: 0 } }
+                });
+            }
+
+            function updateBarChart(key, id, data, title, isPercent = false) {
+                var ctx = document.getElementById(id).getContext('2d');
+                if (charts[key]) charts[key].destroy();
+                if (data.length === 0) return;
+
+                charts[key] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.label),
+                        datasets: [{ label: isPercent ? 'Share (%)' : 'Sales', data: data.map(d => d.value), backgroundColor: '#4e73df' }]
+                    },
+                    options: {
+                        maintainAspectRatio: false, indexAxis: 'y',
+                        plugins: { legend: { display: false }, title: { display: true, text: title },
+                            tooltip: { callbacks: { label: function(c) { return isPercent ? c.raw + '%' : '₩' + (c.raw/1000000).toLocaleString() + 'M'; } } }
+                        },
+                        scales: { x: { ticks: { callback: function(v) { return isPercent ? v + '%' : '₩' + (v/1000000).toLocaleString() + 'M'; } } } }
+                    }
+                });
+            }
+            
+            // --- Advanced Insights ---
+            function generateAdvancedInsights(data, filters) {
+                var weekSalesQty = data.reduce((a, b) => a + safeNum(b.기간판매_수량), 0);
+                var totalStockQty = data.reduce((a, b) => a + safeNum(b.총재고_수량), 0);
+                var wos = weekSalesQty > 0 ? (totalStockQty / weekSalesQty).toFixed(1) : 999;
+                
+                var momentumHtml = "<ul class='mb-0 ps-3'>";
+                if (weekSalesQty === 0) momentumHtml += "<li>💤 <strong>Dormant:</strong> No sales this week.</li>";
+                else if (wos < 4) momentumHtml += "<li>🔥 <strong>Hot:</strong> Low WOS (" + wos + " weeks). Restock needed.</li>";
+                else momentumHtml += "<li>⚖️ <strong>Stable:</strong> WOS is " + wos + " weeks.</li>";
+                momentumHtml += "</ul>";
+                $('#insight-growth').html(momentumHtml);
+                
+                var riskHtml = "<ul class='mb-0 ps-3'>";
+                var heavyStock = data.filter(x => safeNum(x.총재고_수량) > 500 && (safeNum(x.누계판매_수량)/(safeNum(x.누계입고_수량)||1)*100) < 10).length;
+                if(heavyStock > 0) riskHtml += "<li>📉 <strong>Overstock:</strong> " + heavyStock + " styles with high stock & low sales.</li>";
+                else riskHtml += "<li>✨ <strong>Clean:</strong> No major overstock issues.</li>";
+                riskHtml += "</ul>";
+                $('#insight-risk').html(riskHtml);
+                
+                var actionHtml = "<ul class='mb-0 ps-3'><li>🔍 Monitor daily sales trends.</li></ul>";
+                $('#insight-action').html(actionHtml);
+            }
+
+            // --- Tables ---
+            function renderCategoryTable(data, fullData) {
+                if ($.fn.DataTable.isDataTable('#catTable')) $('#catTable').DataTable().destroy();
+                
+                // 1. Build Reference Map from "전년" DATA (for YoY)
+                var refMap = {};
+                if(fullData) {
+                    fullData.forEach(item => {
+                        var gubun = String(item.구분 || '').trim();
+                        if (gubun !== '전년') return; // Only include "전년" data
+
+                        // Normalize keys: trim and uppercase
+                        var season = String(item.기획정보_시즌 || '').trim();
+                        var gender = String(item.기획정보_성별 || '').trim();
+                        var type = String(item['기획정보_의류/용품'] || '').trim();
+                        var catL = String(item.기획정보_대복종 || '').trim();
+                        var catM = String(item.기획정보_복종 || '').trim();
+
+                        // Key excludes Year
+                        var key = [season, gender, type, catL, catM].join('|');
+
+                        if(!refMap[key]) refMap[key] = { weekQty:0, weekAmt:0, cumQty:0, cumAmt:0 };
+                        refMap[key].weekQty += safeNum(item.기간판매_수량);
+                        refMap[key].weekAmt += safeNum(item.기간판매_금액);
+                        refMap[key].cumQty += safeNum(item.누계판매_수량);
+                        refMap[key].cumAmt += safeNum(item.누계판매_금액);
+                    });
+                }
+                
+                // 2. Aggregate Current Filtered Data
+                var groups = {};
+                data.forEach(item => {
+                    var year = String(item.기획정보_연도 || '').trim();
+                    var season = String(item.기획정보_시즌 || '').trim();
+                    var gender = String(item.기획정보_성별 || '').trim();
+                    var type = String(item['기획정보_의류/용품'] || '').trim();
+                    var catL = String(item.기획정보_대복종 || '').trim();
+                    var catM = String(item.기획정보_복종 || '').trim();
+
+                    var key = [year, season, gender, type, catL, catM].join('|');
+                    
+                    if(!groups[key]) groups[key] = { meta: [year, season, gender, type, catL, catM], order:0, in:0, soldW:0, soldC:0, stock:0, amtOrder:0, amtIn:0, amtSoldW:0, amtSoldC:0, amtStock:0 };
+                    var g = groups[key];
+                    g.order += safeNum(item.발주_수량); g.in += safeNum(item.누계입고_수량);
+                    g.soldW += safeNum(item.기간판매_수량); g.soldC += safeNum(item.누계판매_수량);
+                    g.stock += safeNum(item.총재고_수량);
+                    g.amtOrder += safeNum(item.발주_금액); g.amtIn += safeNum(item.누계입고_금액);
+                    g.amtSoldW += safeNum(item.기간판매_금액); g.amtSoldC += safeNum(item.누계판매_금액);
+                    g.amtStock += safeNum(item.총재고_금액);
+                });
+
+                var html = '';
+                Object.values(groups).forEach(g => {
+                    var m = g.meta;
+                    // YoY Lookup Key: season|gender|type|catL|catM
+                    var prevKey = [m[1], m[2], m[3], m[4], m[5]].join('|');
+                    var ref = refMap[prevKey] || { weekQty:0, weekAmt:0, cumQty:0, cumAmt:0 };
+                    
+                    var inRate = g.order > 0 ? (g.in/g.order*100).toFixed(0) : 0;
+                    var sellRate = g.in > 0 ? (g.soldC/g.in*100).toFixed(0) : 0;
+                    
+                    var weekGrowth = ref.weekAmt > 0 ? ((g.amtSoldW - ref.weekAmt)/ref.weekAmt*100).toFixed(0) : '-';
+                    var cumGrowth = ref.cumAmt > 0 ? ((g.amtSoldC - ref.cumAmt)/ref.cumAmt*100).toFixed(0) : '-';
+                    var growthClass = (cumGrowth !== '-' && parseInt(cumGrowth) < 0) ? 'text-danger fw-bold' : 'text-success fw-bold';
+
+                    html += '<tr>';
+                    m.forEach(t => html += '<td>'+t+'</td>');
+                    html += `<td class="text-end">${formatQty(g.order)}</td><td class="text-end">${formatAmt(g.amtOrder)}</td>`;
+                    html += `<td class="text-end">${formatQty(g.in)}</td><td class="text-end">${formatAmt(g.amtIn)}</td><td class="text-end">${inRate}%</td>`;
+                    html += `<td class="text-end">${formatQty(g.soldW)}</td><td class="text-end">${formatAmt(g.amtSoldW)}</td>`;
+                    
+                    // YoY Columns
+                    html += `<td class="text-end text-muted small">${ref.weekQty ? formatQty(ref.weekQty) : '-'}</td>`;
+                    html += `<td class="text-end text-muted small">${ref.weekAmt ? formatAmt(ref.weekAmt) : '-'}</td>`;
+                    html += `<td class="text-end ${weekGrowth.includes('-')?'':'fw-bold'}">${weekGrowth === '-' ? '-' : weekGrowth+'%'}</td>`;
+                    
+                    html += `<td class="text-end">${formatQty(g.soldC)}</td><td class="text-end">${formatAmt(g.amtSoldC)}</td>`;
+                    
+                    // YoY Columns
+                    html += `<td class="text-end text-muted small">${ref.cumQty ? formatQty(ref.cumQty) : '-'}</td>`;
+                    html += `<td class="text-end text-muted small">${ref.cumAmt ? formatAmt(ref.cumAmt) : '-'}</td>`;
+                    html += `<td class="text-end ${growthClass}">${cumGrowth === '-' ? '-' : cumGrowth+'%'}</td>`;
+                    
+                    html += `<td class="text-end">${formatQty(g.stock)}</td><td class="text-end">${formatAmt(g.amtStock)}</td>`;
+                    html += `<td class="text-end">${sellRate}%</td></tr>`;
+                });
+                $('#catBody').html(html);
+                
+                $('#catTable').DataTable({
+                    pageLength: 20, scrollX: true,
+                    fixedColumns: { leftColumns: 6 },
+                    footerCallback: function(row, data, start, end, display) {
+                        var api = this.api();
+                        // Safe Integer Parsing
+                        var intVal = function ( i ) {
+                            if (typeof i === 'string') {
+                                i = i.replace(/[\$,%]/g, '').replace(/,/g, '').trim();
+                                return i === '' || i === '-' ? 0 : parseFloat(i);
+                            }
+                            return typeof i === 'number' ? i : 0;
+                        };
+                        
+                        // Columns to Sum: Indices 6,7,8,9, 11,12,13,14, 16,17,18,19, 21,22
+                        // Adjusted based on actual column count in <thead>:
+                        // 0-5: Keys
+                        // 6: 발주수량, 7: 발주금액, 8: 입고수량, 9: 입고금액, 10: 입고율
+                        // 11: 주간수량, 12: 주간금액, 13: 전년주간수량, 14: 전년주간금액, 15: 주간신장
+                        // 16: 주간누적수량, 17: 주간누적금액, 18: 전년누적수량, 19: 전년누적금액, 20: 누적신장
+                        // 21: 재고수량, 22: 재고금액, 23: 소진율
+                        
+                        var sumCols = [6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19, 21, 22];
+                        
+                        sumCols.forEach(function(colIdx) {
+                            var total = api.column(colIdx, { search: 'applied' }).data().reduce(function(a, b) {
+                                return intVal(a) + intVal(b);
+                            }, 0);
+                            $(api.column(colIdx).footer()).html(total.toLocaleString());
+                        });
+                        
+                        // Re-calculate Rates for Footer
+                        var sumIn = intVal($(api.column(8).footer()).html()); // 입고
+                        var sumSold = intVal($(api.column(16).footer()).html()); // 누적판매
+                        var rateSell = sumIn > 0 ? (sumSold / sumIn * 100).toFixed(1) + '%' : '0.0%';
+                        $(api.column(23).footer()).html(rateSell);
+                    }
+                });
+            }
+
+            function updateItemTables(filtered) {
+                var top10 = [...filtered].sort((a,b) => safeNum(b.누계판매_금액) - safeNum(a.누계판매_금액)).slice(0, 10);
+                renderTable('topBody', 'topTable', top10);
+                
+                var risk10 = filtered.filter(x => safeNum(x.총재고_수량) > 300 && (safeNum(x.누계판매_수량)/(safeNum(x.누계입고_수량)||1)*100) < 15).sort((a,b) => safeNum(b.총재고_수량) - safeNum(a.총재고_수량)).slice(0, 10);
+                renderTable('riskBody', 'riskTable', risk10);
+                
+                generateTopInsight(top10, filtered);
+                generateRiskInsight(risk10, filtered);
+            }
+            
+            function generateTopInsight(data, totalData) {
+                 if(data.length===0) return $('#topInsightText').text("해당 조건의 데이터가 없습니다.");
+                 
+                 var topItem = data[0];
+                 var topCat = topItem.기획정보_복종;
+                 var topAmt = data.reduce((a,b) => a + safeNum(b.누계판매_금액), 0);
+                 var totalAmt = totalData.reduce((a,b) => a + safeNum(b.누계판매_금액), 0);
+                 var share = totalAmt > 0 ? (topAmt / totalAmt * 100).toFixed(1) : 0;
+                 
+                 var html = "<ul class='mb-0 pl-3'>";
+                 html += "<li><strong>[Pareto Power]</strong> 상위 10개 스타일이 전체 매출의 <span class='text-primary fw-bold'>" + share + "%</span>를 견인하고 있습니다.</li>";
+                 html += "<li><strong>[Trend Leader]</strong> 1위 아이템 <strong>" + topItem.시스템정보_품번 + " (" + topItem.시스템정보_색상 + ")</strong>은 현재까지 <strong>" + safeNum(topItem.누계판매_수량).toLocaleString() + "장</strong> 판매되었습니다.</li>";
+                 html += "<li><strong>[Action]</strong> 베스트 아이템의 재고가 충분한지 확인하고, 부족 시 즉시 리오더를 진행하세요. 유사 디자인(Spot) 기획도 추천됩니다.</li>";
+                 html += "</ul>";
+                 
+                 $('#topInsightText').html(html);
+            }
+            
+            function generateRiskInsight(data, totalData) {
+                if(data.length===0) return $('#riskInsightText').html("<span class='text-success'>✅ 현재 조건 내 심각한 리스크 아이템(판매부진 & 과다재고)이 발견되지 않았습니다. 관리가 잘 되고 있습니다.</span>");
+                
+                var worst = data[0];
+                var riskStockQty = data.reduce((a,b) => a + safeNum(b.총재고_수량), 0);
+                var riskStockAmt = data.reduce((a,b) => a + safeNum(b.총재고_금액), 0);
+                
+                var html = "<ul class='mb-0 pl-3'>";
+                html += "<li><strong>[Risk Alert]</strong> 하위 10개 아이템에 묶인 재고 금액만 <strong>" + (riskStockAmt/1000000).toLocaleString(undefined, {maximumFractionDigits:0}) + "백만원</strong>입니다.</li>";
+                html += "<li><strong>[Worst Inventory]</strong> <strong>" + worst.시스템정보_품번 + "</strong> 품번은 재고 <strong>" + safeNum(worst.총재고_수량).toLocaleString() + "장</strong>을 보유 중이나 판매가 부진합니다.</li>";
+                html += "<li><strong>[Action]</strong> 매장 간 이동(RT)으로 판매 기회를 늘리거나, 과감한 할인율을 적용하여 현금화를 시도해야 합니다.</li>";
+                html += "</ul>";
+                
+                $('#riskInsightText').html(html);
+            }
+            
+            function renderTable(tbodyId, tableId, data) {
+                var html = '';
+                data.forEach(row => {
+                    html += '<tr>';
+                    html += `<td>${row.시스템정보_품번}</td><td>${row.시스템정보_색상}</td><td>${row['기획정보_의류/용품']}</td><td>${row.기획정보_복종}</td>`;
+                    html += `<td class="text-end">${formatQty(safeNum(row.발주_수량))}</td><td class="text-end">${formatAmt(safeNum(row.발주_금액))}</td>`;
+                    html += `<td class="text-end">${formatQty(safeNum(row.누계입고_수량))}</td><td class="text-end">${formatAmt(safeNum(row.누계입고_금액))}</td>`;
+                    html += `<td class="text-end">${formatPct(safeNum(row.In_Rate))}</td>`;
+                    html += `<td class="text-end">${formatQty(safeNum(row.기간판매_수량))}</td><td class="text-end">${formatAmt(safeNum(row.기간판매_금액))}</td>`;
+                    html += `<td class="text-end">${formatQty(safeNum(row.누계판매_수량))}</td><td class="text-end">${formatAmt(safeNum(row.누계판매_금액))}</td>`;
+                    html += `<td class="text-end">${formatQty(safeNum(row.총재고_수량))}</td><td class="text-end">${formatAmt(safeNum(row.총재고_금액))}</td>`;
+                    html += `<td class="text-end">${formatPct(safeNum(row.Sell_Through))}</td>`;
+                    html += '</tr>';
+                });
+                
+                if(data.length===0) html='<tr><td colspan="16" class="text-center">No Data</td></tr>';
+                $('#'+tbodyId).html(html);
+                
+                // Initialize/Re-initialize DataTable with Footer Callback
+                if ($.fn.DataTable.isDataTable('#'+tableId)) {
+                    $('#'+tableId).DataTable().destroy();
+                }
+                
+                $('#'+tableId).DataTable({
+                    scrollX: true, 
+                    fixedColumns: { leftColumns: 4 },
+                    paging: false, // Show all top 10/risk 10
+                    searching: false,
+                    info: false,
+                    footerCallback: function(row, data, start, end, display) {
+                        var api = this.api();
+                        // Indices in Table (0-3 are text, 4 starts numbers)
+                        // 4:발주수량, 5:발주금액, 6:입고수량, 7:입고금액, 8:입고율
+                        // 9:기간수량, 10:기간금액, 11:누적수량, 12:누적금액, 13:재고수량, 14:재고금액, 15:소진율
+                        
+                        var safeInt = (i) => typeof i === 'string' ? parseFloat(i.replace(/,/g, '')) || 0 : typeof i === 'number' ? i : 0;
+                        
+                        var sumCols = [4, 5, 6, 7, 9, 10, 11, 12, 13, 14];
+                        sumCols.forEach(colIdx => {
+                            var total = api.column(colIdx).data().reduce((a,b) => safeInt(a) + safeInt(b), 0);
+                            $(api.column(colIdx).footer()).html(total.toLocaleString());
+                        });
+                        
+                        // Rates
+                        var sumIn = safeInt($(api.column(6).footer()).html().replace(/,/g,''));
+                        var sumSold = safeInt($(api.column(11).footer()).html().replace(/,/g,''));
+                        var rateSell = sumIn > 0 ? (sumSold / sumIn * 100).toFixed(1) + '%' : '0.0%';
+                        $(api.column(15).footer()).html(rateSell);
+                    }
+                });
+            }
