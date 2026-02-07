@@ -74,7 +74,7 @@
                 <span id="data-source-badge" class="badge bg-warning text-dark">Sample Data</span>
                 <span id="lib-status" class="badge bg-secondary ms-2 small">Checking...</span>
             </div>
-            <span class="text-muted">Updated: 2026-02-07 10:54</span>
+            <span class="text-muted">Updated: 2026-02-07 11:03</span>
         </div>
 
         <div class="row mb-3">
@@ -739,17 +739,21 @@
             function renderCategoryTable(data, fullData) {
                 if ($.fn.DataTable.isDataTable('#catTable')) $('#catTable').DataTable().destroy();
                 
-                // 1. Build Reference Map from ALL Data (Indexed by Year)
+                // 1. Build Reference Map from "전년" DATA ONLY (Indexed by Year)
                 // Key: year|season|gender|type|catL|catM
                 var refMap = {};
                 if(fullData) {
                     fullData.forEach(item => {
+                        // Strict Filter: Only include rows marked as '전년' for the reference map
+                        var gubun = String(item.구분 || '').trim();
+                        if (gubun !== '전년') return; 
+
                         // Normalize keys
                         var year = parseInt(item.기획정보_연도);
                         if (isNaN(year)) return;
                         
-                        // Handle 2025 vs 25 (and any other 4-digit years)
-                        if (year > 2000) year = year - 2000;
+                        // Handle 2025 vs 25
+                        if (year > 2000) year = year - 2000; 
 
                         var season = String(item.기획정보_시즌 || '').trim();
                         var gender = String(item.기획정보_성별 || '').trim();
