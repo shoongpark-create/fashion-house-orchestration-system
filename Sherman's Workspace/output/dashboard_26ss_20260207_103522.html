@@ -70,7 +70,7 @@
                 <span id="data-source-badge" class="badge bg-warning text-dark">Sample Data</span>
                 <span id="lib-status" class="badge bg-secondary ms-2 small">Checking...</span>
             </div>
-            <span class="text-muted">Updated: 2026-02-07 10:11</span>
+            <span class="text-muted">Updated: 2026-02-07 10:35</span>
         </div>
 
         <div class="row mb-3">
@@ -672,21 +672,62 @@
                 var totalStockQty = data.reduce((a, b) => a + safeNum(b.총재고_수량), 0);
                 var wos = weekSalesQty > 0 ? (totalStockQty / weekSalesQty).toFixed(1) : 999;
                 
-                var momentumHtml = "<ul class='mb-0 ps-3'>";
-                if (weekSalesQty === 0) momentumHtml += "<li>💤 <strong>Dormant:</strong> No sales this week.</li>";
-                else if (wos < 4) momentumHtml += "<li>🔥 <strong>Hot:</strong> Low WOS (" + wos + " weeks). Restock needed.</li>";
-                else momentumHtml += "<li>⚖️ <strong>Stable:</strong> WOS is " + wos + " weeks.</li>";
+                // 1. Growth Opportunities (성장 기회)
+                var momentumHtml = "<ul class='mb-0 ps-3 small'>";
+                if (weekSalesQty === 0) {
+                    momentumHtml += "<li>💤 <strong>[휴면 상태]</strong> 금주 판매가 발생하지 않았습니다. 프로모션이나 노출 위치 변경이 필요합니다.</li>";
+                } else if (wos < 4) {
+                    momentumHtml += "<li>🔥 <strong>[품절 임박]</strong> 재고 소진 기간(WOS)이 " + wos + "주로 매우 짧습니다. 즉시 리오더(QR)를 검토하세요.</li>";
+                    momentumHtml += "<li>🚀 <strong>[상승세]</strong> 현재 판매 추세가 강력합니다. 메인 배너 노출을 유지하세요.</li>";
+                } else if (wos > 20) {
+                    momentumHtml += "<li>🐢 <strong>[판매 둔화]</strong> 재고 소진까지 " + wos + "주가 소요될 예상입니다. 할인율 조정을 고려하세요.</li>";
+                } else {
+                    momentumHtml += "<li>⚖️ <strong>[안정적]</strong> 적정 재고 수준(" + wos + "주)을 유지하고 있습니다.</li>";
+                }
+                
+                // Check for high efficiency items (Low stock but high sell-through)
+                var hiddenGems = data.filter(x => safeNum(x.Sell_Through) > 80 && safeNum(x.총재고_수량) > 0 && safeNum(x.총재고_수량) < 50).length;
+                if (hiddenGems > 0) {
+                    momentumHtml += "<li>💎 <strong>[숨은 보석]</strong> 판매율 80% 이상인 재고 부족 스타일이 " + hiddenGems + "개 있습니다.</li>";
+                }
                 momentumHtml += "</ul>";
                 $('#insight-growth').html(momentumHtml);
                 
-                var riskHtml = "<ul class='mb-0 ps-3'>";
-                var heavyStock = data.filter(x => safeNum(x.총재고_수량) > 500 && (safeNum(x.누계판매_수량)/(safeNum(x.누계입고_수량)||1)*100) < 10).length;
-                if(heavyStock > 0) riskHtml += "<li>📉 <strong>Overstock:</strong> " + heavyStock + " styles with high stock & low sales.</li>";
-                else riskHtml += "<li>✨ <strong>Clean:</strong> No major overstock issues.</li>";
+                // 2. Inventory Risk (재고 리스크)
+                var riskHtml = "<ul class='mb-0 ps-3 small'>";
+                var heavyStockItems = data.filter(x => safeNum(x.총재고_수량) > 500 && (safeNum(x.누계판매_수량)/(safeNum(x.누계입고_수량)||1)*100) < 10);
+                var heavyStockQty = heavyStockItems.reduce((a,b) => a + safeNum(b.총재고_수량), 0);
+                
+                if(heavyStockItems.length > 0) {
+                    riskHtml += "<li>📉 <strong>[과다 재고]</strong> 판매 부진 스타일 " + heavyStockItems.length + "종에 재고 " + heavyStockQty.toLocaleString() + "장이 묶여 있습니다.</li>";
+                    riskHtml += "<li>⚠️ <strong>[현금화 필요]</strong> 해당 물량은 시즌 종료 후 악성 재고가 될 가능성이 높습니다. 아울렛 이동이나 기획전을 제안합니다.</li>";
+                } else {
+                    riskHtml += "<li>✨ <strong>[양호]</strong> 현재 기준 심각한 과다 재고 아이템이 발견되지 않았습니다.</li>";
+                }
+                
+                // Zero Sales Check
+                var zeroSales = data.filter(x => safeNum(x.누계판매_수량) === 0 && safeNum(x.총재고_수량) > 100).length;
+                if(zeroSales > 0) {
+                    riskHtml += "<li>❄️ <strong>[판매 제로]</strong> 입고 후 판매가 전혀 없는 스타일이 " + zeroSales + "개 입니다. 스타일링이나 코디 이미지를 점검해보세요.</li>";
+                }
                 riskHtml += "</ul>";
                 $('#insight-risk').html(riskHtml);
                 
-                var actionHtml = "<ul class='mb-0 ps-3'><li>🔍 Monitor daily sales trends.</li></ul>";
+                // 3. Action Plan (실행 전략)
+                var actionHtml = "<ul class='mb-0 ps-3 small'>";
+                actionHtml += "<li>🔍 <strong>[데일리 모니터링]</strong> 베스트 10 상품의 사이즈별 품절 여부를 매일 아침 확인하세요.</li>";
+                
+                var totalSalesAmt = data.reduce((a, b) => a + safeNum(b.누계판매_금액), 0);
+                if (totalSalesAmt > 100000000) { // 1억 이상
+                    actionHtml += "<li>💰 <strong>[매출 집중]</strong> 주력 카테고리의 매출 비중이 높습니다. 해당 카테고리의 연관 상품(Cross-selling)을 제안하세요.</li>";
+                }
+                
+                var topCategory = Object.entries(aggregateData(data, '기획정보_복종')).sort((a,b) => b.value - a.value)[0];
+                if(topCategory) {
+                    actionHtml += "<li>⭐ <strong>[주력 복종]</strong> '" + topCategory.label + "' 복종이 매출을 견인 중입니다. 리오더 우선순위를 두세요.</li>";
+                }
+                
+                actionHtml += "</ul>";
                 $('#insight-action').html(actionHtml);
             }
 
@@ -694,22 +735,22 @@
             function renderCategoryTable(data, fullData) {
                 if ($.fn.DataTable.isDataTable('#catTable')) $('#catTable').DataTable().destroy();
                 
-                // 1. Build Reference Map from "전년" DATA (for YoY)
+                // 1. Build Reference Map from ALL Data (Indexed by Year)
+                // Key: year|season|gender|type|catL|catM
                 var refMap = {};
                 if(fullData) {
                     fullData.forEach(item => {
-                        var gubun = String(item.구분 || '').trim();
-                        if (gubun !== '전년') return; // Only include "전년" data
+                        // Normalize keys
+                        var year = parseInt(item.기획정보_연도);
+                        if (isNaN(year)) return;
 
-                        // Normalize keys: trim and uppercase
                         var season = String(item.기획정보_시즌 || '').trim();
                         var gender = String(item.기획정보_성별 || '').trim();
                         var type = String(item['기획정보_의류/용품'] || '').trim();
                         var catL = String(item.기획정보_대복종 || '').trim();
                         var catM = String(item.기획정보_복종 || '').trim();
 
-                        // Key excludes Year
-                        var key = [season, gender, type, catL, catM].join('|');
+                        var key = [year, season, gender, type, catL, catM].join('|');
 
                         if(!refMap[key]) refMap[key] = { weekQty:0, weekAmt:0, cumQty:0, cumAmt:0 };
                         refMap[key].weekQty += safeNum(item.기간판매_수량);
@@ -722,7 +763,9 @@
                 // 2. Aggregate Current Filtered Data
                 var groups = {};
                 data.forEach(item => {
-                    var year = String(item.기획정보_연도 || '').trim();
+                    var year = parseInt(item.기획정보_연도);
+                    if (isNaN(year)) return;
+
                     var season = String(item.기획정보_시즌 || '').trim();
                     var gender = String(item.기획정보_성별 || '').trim();
                     var type = String(item['기획정보_의류/용품'] || '').trim();
@@ -744,8 +787,11 @@
                 var html = '';
                 Object.values(groups).forEach(g => {
                     var m = g.meta;
-                    // YoY Lookup Key: season|gender|type|catL|catM
-                    var prevKey = [m[1], m[2], m[3], m[4], m[5]].join('|');
+                    var currentYear = parseInt(m[0]);
+                    var prevYear = currentYear - 1; // Strict Year-1 Calculation
+
+                    // YoY Lookup Key: (Year-1)|season|gender|type|catL|catM
+                    var prevKey = [prevYear, m[1], m[2], m[3], m[4], m[5]].join('|');
                     var ref = refMap[prevKey] || { weekQty:0, weekAmt:0, cumQty:0, cumAmt:0 };
                     
                     var inRate = g.order > 0 ? (g.in/g.order*100).toFixed(0) : 0;
@@ -761,14 +807,14 @@
                     html += `<td class="text-end">${formatQty(g.in)}</td><td class="text-end">${formatAmt(g.amtIn)}</td><td class="text-end">${inRate}%</td>`;
                     html += `<td class="text-end">${formatQty(g.soldW)}</td><td class="text-end">${formatAmt(g.amtSoldW)}</td>`;
                     
-                    // YoY Columns
+                    // YoY Columns (Displaying Strict Year-1 Data)
                     html += `<td class="text-end text-muted small">${ref.weekQty ? formatQty(ref.weekQty) : '-'}</td>`;
                     html += `<td class="text-end text-muted small">${ref.weekAmt ? formatAmt(ref.weekAmt) : '-'}</td>`;
                     html += `<td class="text-end ${weekGrowth.includes('-')?'':'fw-bold'}">${weekGrowth === '-' ? '-' : weekGrowth+'%'}</td>`;
                     
                     html += `<td class="text-end">${formatQty(g.soldC)}</td><td class="text-end">${formatAmt(g.amtSoldC)}</td>`;
                     
-                    // YoY Columns
+                    // YoY Columns (Displaying Strict Year-1 Data)
                     html += `<td class="text-end text-muted small">${ref.cumQty ? formatQty(ref.cumQty) : '-'}</td>`;
                     html += `<td class="text-end text-muted small">${ref.cumAmt ? formatAmt(ref.cumAmt) : '-'}</td>`;
                     html += `<td class="text-end ${growthClass}">${cumGrowth === '-' ? '-' : cumGrowth+'%'}</td>`;
